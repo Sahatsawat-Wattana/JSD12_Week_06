@@ -4,7 +4,7 @@ function getAllAnimalsByLetter(letter) {
 
   const url = `https://api.api-ninjas.com/v1/animals?name=${letter}`;
   return fetch(url, {
-    headers: { "X-Api-Key": "L2Djpaw7iMfoOjdbkIXtY0gdVtOjcX8gkO13OdTY" },
+    headers: { "X-Api-Key": "" },
   })
     .then((response) => response.json())
     .then((data) => {

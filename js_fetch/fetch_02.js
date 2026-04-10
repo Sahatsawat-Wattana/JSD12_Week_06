@@ -2,7 +2,7 @@ const url = "https://api.api-ninjas.com/v1/animals?name=cheetah";
 const option = {
   method: "GET",
   headers: {
-    "X-Api-Key": "L2Djpaw7iMfoOjdbkIXtY0gdVtOjcX8gkO13OdTY",
+    "X-Api-Key": "",
     "Content-Type": "application/json",
   },
 };
