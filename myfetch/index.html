@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IBM Stock Chart</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 40px;
+            background-color: #f9f9f9;
+        }
+        #chart-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: inline-block;
+        }
+        .line {
+            fill: none;
+            stroke: #2563eb;
+            stroke-width: 2px;
+        }
+        .axis-label {
+            font-size: 12px;
+            fill: #666;
+        }
+        #error-message {
+            color: #dc2626;
+            font-weight: bold;
+            display: none;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>IBM Daily Closing Prices</h2>
+    <div id="error-message"></div>
+    <div id="chart-container"></div>
+
+    <script>
+        const context = "TIME_SERIES_DAILY";
+        const apiKey = "";
+        const symbol = "IBM";
+
+        async function loadAndDrawChart() {
+            const url = `https://www.alphavantage.co/query?function=${context}&symbol=${symbol}&apikey=${apiKey}`;
+            
+            try {
+                const response = await fetch(url, { headers: { "User-Agent": "request" } });
+                if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+                
+                const rawData = await response.json();
+                if (rawData.Information || rawData.Note) {
+                    throw new Error(rawData.Information || rawData.Note);
+                }
+
+                const timeSeries = rawData["Time Series (Daily)"];
+                if (!timeSeries) throw new Error("Could not find time series data in response.");
+                const parseTime = d3.timeParse("%Y-%m-%d");
+                let data = Object.entries(timeSeries).map(([dateString, dailyData]) => {
+                    return {
+                        date: parseTime(dateString),
+                        close: parseFloat(dailyData["4. close"])
+                    };
+                });
+                data.sort((a, b) => a.date - b.date);
+                drawChart(data);
+
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                const errorDiv = document.getElementById("error-message");
+                errorDiv.style.display = "block";
+                errorDiv.innerText = `Failed to load data: ${error.message}. (You may have hit the Alpha Vantage API rate limit).`;
+            }
+        }
+
+        function drawChart(data) {
+            const margin = {top: 20, right: 30, bottom: 40, left: 50};
+            const width = 800 - margin.left - margin.right;
+            const height = 400 - margin.top - margin.bottom;
+
+            const svg = d3.select("#chart-container")
+              .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+              .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+            const x = d3.scaleTime()
+              .domain(d3.extent(data, d => d.date))
+              .range([ 0, width ]);
+            
+            svg.append("g")
+              .attr("transform", `translate(0,${height})`)
+              .call(d3.axisBottom(x).ticks(6))
+              .attr("class", "axis-label");
+            const yMin = d3.min(data, d => d.close);
+            const yMax = d3.max(data, d => d.close);
+            const yBuffer = (yMax - yMin) * 0.1;
+            const y = d3.scaleLinear()
+              .domain([yMin - yBuffer, yMax + yBuffer])
+              .range([ height, 0 ]);
+              
+            svg.append("g")
+              .call(d3.axisLeft(y).tickFormat(d => "$" + d))
+              .attr("class", "axis-label");
+            svg.append("path")
+              .datum(data)
+              .attr("class", "line")
+              .attr("d", d3.line()
+                .x(d => x(d.date))
+                .y(d => y(d.close))
+              );
+        }
+        loadAndDrawChart();
+    </script>
+</body>
+</html>
