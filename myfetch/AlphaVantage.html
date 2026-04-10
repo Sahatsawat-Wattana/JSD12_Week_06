@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IBM Stock Chart</title>
+    <title>IBM High, Low, Close Chart</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         body {
@@ -18,15 +18,17 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             display: inline-block;
         }
-        .line {
-            fill: none;
-            stroke: #2563eb;
-            stroke-width: 2px;
-        }
-        .axis-label {
-            font-size: 12px;
-            fill: #666;
-        }
+        .line { fill: none; stroke-width: 2px; }
+        .line-high { stroke: #16a34a; } /* Green */
+        .line-low { stroke: #dc2626; }  /* Red */
+        .line-close { stroke: #2563eb; } /* Blue */
+        
+        .axis-label { font-size: 12px; fill: #666; }
+        
+        /* Simple legend styling */
+        .legend text { font-size: 14px; }
+        .legend-box { width: 12px; height: 12px; display: inline-block; margin-right: 5px; }
+        
         #error-message {
             color: #dc2626;
             font-weight: bold;
@@ -37,13 +39,20 @@
 </head>
 <body>
 
-    <h2>IBM Daily Closing Prices</h2>
+    <h2>IBM Daily Prices (High, Low, Close)</h2>
     <div id="error-message"></div>
+    
+    <div style="margin-bottom: 10px;">
+        <span class="legend-box" style="background-color: #16a34a;"></span> High
+        <span class="legend-box" style="background-color: #dc2626; margin-left: 15px;"></span> Low
+        <span class="legend-box" style="background-color: #2563eb; margin-left: 15px;"></span> Close
+    </div>
+
     <div id="chart-container"></div>
 
     <script>
         const context = "TIME_SERIES_DAILY";
-        const apiKey = "";
+        const apiKey = ""; 
         const symbol = "IBM";
 
         async function loadAndDrawChart() {
@@ -54,27 +63,35 @@
                 if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
                 
                 const rawData = await response.json();
+                
                 if (rawData.Information || rawData.Note) {
                     throw new Error(rawData.Information || rawData.Note);
                 }
 
                 const timeSeries = rawData["Time Series (Daily)"];
-                if (!timeSeries) throw new Error("Could not find time series data in response.");
+                if (!timeSeries) throw new Error("Could not find time series data.");
+
                 const parseTime = d3.timeParse("%Y-%m-%d");
+                
+                // 1. Extract High, Low, and Close
                 let data = Object.entries(timeSeries).map(([dateString, dailyData]) => {
                     return {
                         date: parseTime(dateString),
+                        high: parseFloat(dailyData["2. high"]),
+                        low: parseFloat(dailyData["3. low"]),
                         close: parseFloat(dailyData["4. close"])
                     };
                 });
+
                 data.sort((a, b) => a.date - b.date);
+
                 drawChart(data);
 
             } catch (error) {
-                console.error("Error fetching data:", error);
+                console.error("Error:", error);
                 const errorDiv = document.getElementById("error-message");
                 errorDiv.style.display = "block";
-                errorDiv.innerText = `Failed to load data: ${error.message}. (You may have hit the Alpha Vantage API rate limit).`;
+                errorDiv.innerText = `Failed to load data: ${error.message}`;
             }
         }
 
@@ -89,6 +106,8 @@
                 .attr("height", height + margin.top + margin.bottom)
               .append("g")
                 .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // X Axis
             const x = d3.scaleTime()
               .domain(d3.extent(data, d => d.date))
               .range([ 0, width ]);
@@ -97,9 +116,12 @@
               .attr("transform", `translate(0,${height})`)
               .call(d3.axisBottom(x).ticks(6))
               .attr("class", "axis-label");
-            const yMin = d3.min(data, d => d.close);
-            const yMax = d3.max(data, d => d.close);
+
+            // Y Axis: Find the absolute minimum 'low' and absolute maximum 'high'
+            const yMin = d3.min(data, d => d.low);
+            const yMax = d3.max(data, d => d.high);
             const yBuffer = (yMax - yMin) * 0.1;
+
             const y = d3.scaleLinear()
               .domain([yMin - yBuffer, yMax + yBuffer])
               .range([ height, 0 ]);
@@ -107,14 +129,35 @@
             svg.append("g")
               .call(d3.axisLeft(y).tickFormat(d => "$" + d))
               .attr("class", "axis-label");
+
+            // Draw High Line
             svg.append("path")
               .datum(data)
-              .attr("class", "line")
+              .attr("class", "line line-high")
+              .attr("d", d3.line()
+                .x(d => x(d.date))
+                .y(d => y(d.high))
+              );
+
+            // Draw Low Line
+            svg.append("path")
+              .datum(data)
+              .attr("class", "line line-low")
+              .attr("d", d3.line()
+                .x(d => x(d.date))
+                .y(d => y(d.low))
+              );
+
+            // Draw Close Line
+            svg.append("path")
+              .datum(data)
+              .attr("class", "line line-close")
               .attr("d", d3.line()
                 .x(d => x(d.date))
                 .y(d => y(d.close))
               );
         }
+
         loadAndDrawChart();
     </script>
 </body>
