@@ -1,5 +1,5 @@
 const context = "TIME_SERIES_DAILY";
-const apiKey = "";
+const apiKey = "XAT3H1DPZI5ETSAV";
 const symbol = "IBM";
 
 function callStock(context, symbol, apiKey) {
